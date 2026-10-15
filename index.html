@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="bs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cijene lijekova</title>
+<meta name="theme-color" content="#0f8b6d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cijene">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+  :root { --bg:#f4f7f6; --card:#fff; --ink:#1b2b27; --muted:#6b7c77; --accent:#0f8b6d; --danger:#c0392b; --line:#dbe5e1; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#121a18; --card:#1b2724; --ink:#e8f1ee; --muted:#93a7a1; --accent:#2fbf9b; --danger:#e8695a; --line:#2c3b37; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  .wrap { max-width:720px; margin:0 auto; padding:16px; padding-top:max(16px, env(safe-area-inset-top)); padding-bottom:max(16px, env(safe-area-inset-bottom)); }
+  input, textarea, button { -webkit-appearance:none; appearance:none; }
+  input[type=search], input[type=text], textarea { font-size:16px; } /* iOS ne zumira polje */
+  h1 { font-size:1.2rem; margin:0 0 12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:14px; }
+  input[type=text], input[type=search], input[type=number], textarea {
+    width:100%; padding:12px; font-size:1.05rem; border:1px solid var(--line); border-radius:10px;
+    background:var(--bg); color:var(--ink);
+  }
+  #search { font-size:1.3rem; padding:16px; border:2px solid var(--accent); }
+  .row { display:flex; gap:8px; }
+  .row > :first-child { flex:1; }
+  .row .price { width:130px; }
+  button { padding:12px 16px; font-size:1rem; border:0; border-radius:10px; background:var(--accent); color:#fff; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  button.small { padding:8px 12px; font-size:.9rem; }
+  button.del { background:transparent; color:var(--danger); border:1px solid var(--line); }
+  .item { display:flex; align-items:center; gap:10px; padding:12px 4px; border-bottom:1px solid var(--line); }
+  .item:last-child { border-bottom:0; }
+  .item .name { flex:1; font-size:1.1rem; }
+  .item .p { font-size:1.35rem; font-weight:700; color:var(--accent); white-space:nowrap; }
+  .muted { color:var(--muted); font-size:.9rem; }
+  .empty { text-align:center; padding:20px; color:var(--muted); }
+  details summary { cursor:pointer; font-weight:600; }
+  textarea { min-height:120px; font-family:inherit; }
+  .tools { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .msg { color:var(--accent); margin-top:8px; min-height:1.2em; }
+  #toast { display:none; position:fixed; top:12px; left:12px; right:12px; z-index:10; padding:14px; border-radius:10px;
+    color:#fff; font-size:1.05rem; text-align:center; box-shadow:0 4px 16px rgba(0,0,0,.25); }
+</style>
+</head>
+<body>
+<div id="toast"></div>
+<div class="wrap">
+  <h1>💊 Cijene lijekova</h1>
+
+  <div class="card">
+    <input id="search" type="search" placeholder="Pretraži lijek…" autocomplete="off" autofocus>
+    <div class="muted" id="count" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card" id="list"></div>
+
+  <div class="card">
+    <details id="addBox">
+      <summary>➕ Dodaj / izmijeni lijek</summary>
+      <div class="row" style="margin-top:12px">
+        <input id="name" type="text" placeholder="Naziv lijeka">
+        <input id="price" class="price" type="text" inputmode="decimal" placeholder="Cijena KM" autocomplete="off">
+      </div>
+      <div class="tools">
+        <button id="save">Spremi</button>
+        <button class="ghost" id="cancel" style="display:none">Odustani</button>
+      </div>
+      <div class="msg" id="msg"></div>
+    </details>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>📋 Unos više lijekova odjednom</summary>
+      <p class="muted">Zalijepi listu, jedan lijek po redu, npr.<br><code>Brufen 400mg;4.50</code><br>Postojeći lijekovi s istim nazivom dobijaju novu cijenu.</p>
+      <textarea id="bulk" placeholder="Naziv;Cijena"></textarea>
+      <div class="tools"><button id="bulkBtn">Dodaj sve</button></div>
+      <div class="msg" id="bulkMsg"></div>
+    </details>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>💾 Sigurnosna kopija</summary>
+      <p class="muted">Podaci se čuvaju u ovom pregledniku. Povremeno spremi kopiju, za svaki slučaj (npr. ako se obrišu podaci preglednika).</p>
+      <div class="tools">
+        <button class="ghost" id="exportBtn">Preuzmi kopiju</button>
+        <button class="ghost" id="importBtn">Učitaj kopiju</button>
+        <input id="importFile" type="file" accept=".json,.csv,.txt" hidden>
+      </div>
+      <div class="msg" id="backupMsg"></div>
+    </details>
+  </div>
+</div>
+
+<script>
+(function () {
+  var KEY = 'apoteka_cijene_v1';
+  var items = [];
+  var editingId = null;
+
+  function load() {
+    try { items = JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { items = []; }
+  }
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(items)); }
+    catch (e) { alert('Spremanje nije uspjelo. Provjeri da preglednik ne radi u privatnom načinu.'); }
+  }
+  function norm(s) {
+    return (s || '').toString().toLowerCase()
+      .replace(/đ/g, 'd').replace(/dž/g, 'dz')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ').trim();
+  }
+  function fmt(p) { return Number(p).toFixed(2).replace('.', ',') + ' KM'; }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function parsePrice(v) { return parseFloat(String(v).replace(',', '.').replace(/[^\d.]/g, '')); }
+  function esc(s) { return s.replace(/[&<>"]/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function render() {
+    var q = norm($('search').value);
+    var words = q ? q.split(' ') : [];
+    var list = items.filter(function (it) {
+      var n = norm(it.name);
+      return words.every(function (w) { return n.indexOf(w) !== -1; });
+    });
+    list.sort(function (a, b) {
+      if (q) {
+        var as = norm(a.name).indexOf(q) === 0 ? 0 : 1;
+        var bs = norm(b.name).indexOf(q) === 0 ? 0 : 1;
+        if (as !== bs) return as - bs;
+      }
+      return a.name.localeCompare(b.name, 'bs');
+    });
+    var shown = q ? list : list.slice(0, 200);
+    $('count').textContent = items.length
+      ? (q ? list.length + ' rezultata' : 'Ukupno u bazi: ' + items.length)
+      : '';
+    if (!shown.length) {
+      $('list').innerHTML = '<div class="empty">' +
+        (items.length ? 'Nema rezultata.' : 'Baza je prazna. Dodaj prvi lijek ispod.') + '</div>';
+      return;
+    }
+    $('list').innerHTML = shown.map(function (it) {
+      return '<div class="item"><div class="name">' + esc(it.name) + '</div>' +
+        '<div class="p">' + fmt(it.price) + '</div>' +
+        '<button class="ghost small" data-edit="' + it.id + '" aria-label="Izmijeni">✏️</button>' +
+        '<button class="del small" data-del="' + it.id + '" aria-label="Obriši">🗑</button></div>';
+    }).join('');
+  }
+
+  var toastTimer;
+  function toast(text, bad) {
+    var t = $('toast');
+    t.textContent = text;
+    t.style.background = bad ? 'var(--danger)' : 'var(--accent)';
+    t.style.display = 'block';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.style.display = 'none'; }, 3500);
+  }
+  function say(id, text) {
+    $(id).textContent = text;
+    setTimeout(function () { $(id).textContent = ''; }, 4000);
+    toast(text, /^Upi|nije|Spremanje/.test(text));
+  }
+  window.onerror = function (m) { toast('Greška: ' + m, true); };
+
+  function resetForm() {
+    editingId = null;
+    $('name').value = ''; $('price').value = '';
+    $('cancel').style.display = 'none';
+  }
+
+  $('search').addEventListener('input', render);
+
+  $('save').addEventListener('click', function () {
+    var name = $('name').value.trim();
+    var price = parsePrice($('price').value);
+    if (!name || isNaN(price)) { say('msg', 'Upiši naziv i cijenu.'); return; }
+    if (editingId) {
+      items.forEach(function (it) { if (it.id === editingId) { it.name = name; it.price = price; } });
+    } else {
+      var existing = items.filter(function (it) { return norm(it.name) === norm(name); })[0];
+      if (existing) existing.price = price; else items.push({ id: uid(), name: name, price: price });
+    }
+    persist(); resetForm(); render(); say('msg', 'Spremljeno ✓');
+    $('name').focus();
+  });
+  $('cancel').addEventListener('click', resetForm);
+
+  $('list').addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.del) {
+      var it = items.filter(function (x) { return x.id === t.dataset.del; })[0];
+      if (it && confirm('Obrisati "' + it.name + '"?')) {
+        items = items.filter(function (x) { return x.id !== it.id; });
+        persist(); render();
+      }
+    } else if (t.dataset.edit) {
+      var it2 = items.filter(function (x) { return x.id === t.dataset.edit; })[0];
+      if (!it2) return;
+      editingId = it2.id;
+      $('name').value = it2.name; $('price').value = it2.price;
+      $('cancel').style.display = '';
+      $('addBox').open = true;
+      $('addBox').scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+
+  function bulkAdd(text) {
+    var added = 0, updated = 0, skipped = 0;
+    text.split(/\r?\n/).forEach(function (line) {
+      line = line.trim(); if (!line) return;
+      var m = line.match(/^(.*?)[;\t](\s*[\d.,]+)\s*(?:KM|km)?$/) || line.match(/^(.*\S)\s+([\d]+[.,]?\d*)\s*(?:KM|km)?$/);
+      if (!m) { skipped++; return; }
+      var name = m[1].trim().replace(/^"|"$/g, ''), price = parsePrice(m[2]);
+      if (!name || isNaN(price)) { skipped++; return; }
+      var ex = items.filter(function (it) { return norm(it.name) === norm(name); })[0];
+      if (ex) { ex.price = price; updated++; } else { items.push({ id: uid(), name: name, price: price }); added++; }
+    });
+    persist(); render();
+    return added + ' dodano, ' + updated + ' ažurirano' + (skipped ? ', ' + skipped + ' preskočeno' : '') + '.';
+  }
+  $('bulkBtn').addEventListener('click', function () {
+    var t = $('bulk').value; if (!t.trim()) return;
+    say('bulkMsg', bulkAdd(t)); $('bulk').value = '';
+  });
+
+  $('exportBtn').addEventListener('click', function () {
+    var d = new Date(), stamp = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+    var csv = items.map(function (it) { return it.name.replace(/;/g, ',') + ';' + it.price; }).join('\n');
+    var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'cijene-lijekova-' + stamp + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    say('backupMsg', 'Kopija preuzeta.');
+  });
+  $('importBtn').addEventListener('click', function () { $('importFile').click(); });
+  $('importFile').addEventListener('change', function () {
+    var f = this.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function () { say('backupMsg', bulkAdd(String(r.result).replace(/^\ufeff/, ''))); };
+    r.readAsText(f); this.value = '';
+  });
+
+  load(); render();
+
+  // Offline podrška: sprema aplikaciju u keš (radi samo preko https adrese, npr. GitHub Pages)
+  if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+  // Traži od preglednika da ne briše podatke
+  if (navigator.storage && navigator.storage.persist) {
+    try { navigator.storage.persist(); } catch (e) {}
+  }
+})();
+</script>
+</body>
+</html>
